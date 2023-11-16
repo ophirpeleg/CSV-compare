@@ -4,6 +4,8 @@ import csv
 import pandas as pd
 import os
 from openpyxl.styles import Alignment
+from openpyxl.utils import get_column_letter
+import xlwings as xw
 
 
 def csv_to_dataframe(file_path):
@@ -121,6 +123,10 @@ def save_to_excel(original_file, comparison_file, output_path, common_key):
 
         print(f"Excel file saved: {output_path}")
 
+    output_folder = output_folder_entry.get()
+    output_path = os.path.join(output_folder, "comparison_output.xlsx")
+    auto_fill_formula(last_col=get_column_letter(len(original_df.columns)), last_row=len(original_df)+2, path=output_path)
+
 
 def format_compare_sheet(writer, original_df, comparison_df, common_key):
     # Create the header with the column names spread across every third column, starting from column B
@@ -155,12 +161,63 @@ def format_compare_sheet(writer, original_df, comparison_df, common_key):
     for cell in worksheet['1:1']:  # Accessing the first row
         cell.alignment = Alignment(horizontal='left')
 
+    set_original_values_formula(worksheet, original_df, len(compare_df.columns))
+
+
+
 def choose_output_folder(entry):
     folder_path = filedialog.askdirectory()
     if folder_path:
         entry.delete(0, tk.END)
         entry.insert(0, folder_path)
         print(f"Output folder selected: {folder_path}")
+
+
+def set_original_values_formula(worksheet, original_df, num_cols):
+    max_row = len(original_df) + 2  # Adjust based on your data
+    max_col = get_column_letter(num_cols)
+    original_range = range(2, len(original_df.columns), 3)
+    export_range = range(3,  len(original_df.columns), 3)
+    compare_range = range(4,  len(original_df.columns), 3)
+    last_cell = f"{max_col}2"
+
+    # TODO: Insert the export formula and compare formula
+    for idx in original_range:  # Starting from the fourth Excel column
+        col_letter = get_column_letter(idx)
+        print(f"column latter:{col_letter}")
+        cell = worksheet.cell(row=3, column=idx)
+        # TODO: Get the last row of the original file and from Export tab
+        # TODO: Change the formula to use MATCH
+        formula = f"=HLOOKUP(${col_letter}$1,'Original file'!1:2000,2,FALSE)"
+        cell.value = formula
+        # =HLOOKUP($B$1,'Original file'!1:2000,2,FALSE)
+        # for row_idx in range(3, max_row + 1):  # Starting from the third Excel row
+            # print(f"row: {row_idx}, column: {idx}")
+            # cell = worksheet.cell(row=row_idx, column=idx)
+            # key_cell = f"A{row_idx}"
+            # formula = f"=B3+B4"
+            # cell.value = formula
+
+
+
+def auto_fill_formula(last_col, last_row, path):
+    # Open an existing workbook
+    wb = xw.Book(path)  # Replace with your file path
+    sheet = wb.sheets['Compare']  # Replace with your sheet name
+
+    # Select the cell with the formula
+    cell_with_formula = sheet.range(f"B3:{last_col}3")
+
+    # Define the range to auto-fill
+    # For example, auto-filling from A2 to A10
+    fill_range = sheet.range(f"B3:{last_col}{last_row}")
+
+    # Use the auto-fill
+    cell_with_formula.api.AutoFill(fill_range.api, xw.constants.AutoFillType.xlFillDefault)
+
+    # Save and close the workbook
+    wb.save()
+    wb.close()
 
 
 # GUI setup
