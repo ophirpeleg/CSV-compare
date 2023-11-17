@@ -126,6 +126,7 @@ def save_to_excel(original_file, comparison_file, output_path, common_key):
     output_folder = output_folder_entry.get()
     output_path = os.path.join(output_folder, "comparison_output.xlsx")
     auto_fill_formula(last_col=get_column_letter(len(original_df.columns) * 3 + 1), last_row=len(original_df)+2, path=output_path)
+    # TODO: Needs some formatting, research if it's possible to do it with openpyxl, if not use xlwings
 
 
 def format_compare_sheet(writer, original_df, comparison_df, common_key):
@@ -186,9 +187,6 @@ def set_original_values_formula(worksheet, original_df, num_cols, comparison_df)
     export_key_column = get_column_letter(comparison_df.columns.get_loc(key_column_name) + 1)
     print(f"column in Original tab: {original_key_column}\nColumn in export tab: {export_key_column}")
 
-
-    # TODO: How to make sure that Column B is the Key (or should I get any indication on which column?)
-    # TODO: Insert the export formula and compare formula
     for idx in original_range: # Original formula insertion
         col_letter = get_column_letter(idx)
         print(f"column latter:{col_letter}")
@@ -206,12 +204,16 @@ def set_original_values_formula(worksheet, original_df, num_cols, comparison_df)
     for idx in compare_range: # Export formula insertion
         og_col = get_column_letter(idx - 2)
         export_col = get_column_letter(idx - 1)
-        #col_letter = get_column_letter(idx - 2)
-        #print(f"column latter:{col_letter}")
+        curr_col = get_column_letter(idx)
         cell = worksheet.cell(row=3, column=idx)
         formula = f'=IF(OR(ISNA({og_col}3),ISNA({export_col}3)),"Error",IF({og_col}3={export_col}3,"OK","Error"))'
         # =IF(OR(ISNA(B3),ISNA(C3)),"Error",IF(B3=C3,"OK","Error"))
         cell.value = formula
+        cell = worksheet.cell(row=1, column=idx)
+        formula = f'=COUNTIF(${curr_col}$2:${curr_col}{max_row},"Error")'
+        # =COUNTIF(D2:D7,"Error")
+        cell.value = formula
+
 
 def auto_fill_formula(last_col, last_row, path):
     # Open an existing workbook
@@ -230,12 +232,15 @@ def auto_fill_formula(last_col, last_row, path):
 
     # Save and close the workbook
     wb.save()
+    # TODO add here the condition if the user wants to close the excel file or not
     wb.close()
 
 
 # GUI setup
 root = tk.Tk()
 root.title("CSV Comparison Tool")
+# TODO: Add checkbox for leaving the Excel window open
+# TODO: Open Folder button for the output folder
 
 # File selection for File 1
 file1_frame = tk.Frame(root)
