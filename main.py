@@ -174,45 +174,34 @@ def choose_output_folder(entry):
         print(f"Output folder selected: {folder_path}")
 
 
-def set_original_values_formula(worksheet, original_df, num_cols, comparison_df):
-    max_row = len(original_df) + 2  # Adjust based on your data
-    max_col = get_column_letter(num_cols)
-    original_range = range(2, len(original_df.columns) * 3, 3)
-    export_range = range(3,  (len(original_df.columns)+1) * 3, 3)
-    compare_range = range(4,  (len(original_df.columns)+1) * 3, 3)
+def set_original_values_formula(worksheet, original_df, comparison_df, key_column_name):
+    # Calculate the maximum number of rows in both dataframes
     compare_length = len(comparison_df) + 1
     original_length = len(original_df) + 1
-    key_column_name = key_combobox.get()
+
+    # Retrieve the column letters for the key columns in each sheet
     original_key_column = get_column_letter(original_df.columns.get_loc(key_column_name) + 1)
     export_key_column = get_column_letter(comparison_df.columns.get_loc(key_column_name) + 1)
-    print(f"column in Original tab: {original_key_column}\nColumn in export tab: {export_key_column}")
 
-    for idx in original_range: # Original formula insertion
+    # Set the formulas for the first row of data (row 3 in the worksheet)
+    for idx, col in enumerate(original_df.columns, start=2):
+        col_letter = get_column_letter(idx * 3)  # Original column
+        cell = worksheet.cell(row=3, column=idx * 3)
+        cell.value = f"=HLOOKUP(${col_letter}$1,'Original file'!$1:${original_length},MATCH($A3,'Original file'!${original_key_column}:${original_key_column},0),FALSE)"
+
+        col_letter = get_column_letter(idx * 3 + 1)  # Export column
+        cell = worksheet.cell(row=3, column=idx * 3 + 1)
+        cell.value = f"=HLOOKUP(${col_letter}$1,'Export file'!$1:${compare_length},MATCH($A3,'Export file'!${export_key_column}:${export_key_column},0),FALSE)"
+
+        col_letter = get_column_letter(idx * 3 + 2)  # Compare column
+        cell = worksheet.cell(row=3, column=idx * 3 + 2)
+        cell.value = f'=IF(OR(ISNA({get_column_letter(idx * 3)}3),ISNA({get_column_letter(idx * 3 + 1)}3)),"Error",IF({get_column_letter(idx * 3)}3={get_column_letter(idx * 3 + 1)}3,"OK","Error"))'
+
+    # Set the COUNTIF formula in the first row for each 'Compare' column
+    for idx in range(4, len(original_df.columns) * 3 + 1, 3):
         col_letter = get_column_letter(idx)
-        print(f"column latter:{col_letter}")
-        cell = worksheet.cell(row=3, column=idx)
-        formula = f"=HLOOKUP(${col_letter}$1,'Original file'!$1:${original_length},MATCH($A3,'Original file'!${original_key_column}:${original_key_column},0),FALSE)"
-        cell.value = formula
-
-    for idx in export_range: # Export formula insertion
-        col_letter = get_column_letter(idx - 1)
-        print(f"column latter:{col_letter}")
-        cell = worksheet.cell(row=3, column=idx)
-        formula = f"=HLOOKUP(${col_letter}$1,'Export file'!$1:${compare_length},MATCH($A3,'Export file'!${export_key_column}:${export_key_column},0),FALSE)"
-        cell.value = formula
-
-    for idx in compare_range: # Export formula insertion
-        og_col = get_column_letter(idx - 2)
-        export_col = get_column_letter(idx - 1)
-        curr_col = get_column_letter(idx)
-        cell = worksheet.cell(row=3, column=idx)
-        formula = f'=IF(OR(ISNA({og_col}3),ISNA({export_col}3)),"Error",IF({og_col}3={export_col}3,"OK","Error"))'
-        # =IF(OR(ISNA(B3),ISNA(C3)),"Error",IF(B3=C3,"OK","Error"))
-        cell.value = formula
         cell = worksheet.cell(row=1, column=idx)
-        formula = f'=COUNTIF(${curr_col}$2:${curr_col}{max_row},"Error")'
-        # =COUNTIF(D2:D7,"Error")
-        cell.value = formula
+        cell.value = f'=COUNTIF(${col_letter}$3:${col_letter}{compare_length},"Error")'
 
 
 def auto_fill_formula(last_col, last_row, path):
