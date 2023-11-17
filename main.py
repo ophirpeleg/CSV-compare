@@ -125,7 +125,7 @@ def save_to_excel(original_file, comparison_file, output_path, common_key):
 
     output_folder = output_folder_entry.get()
     output_path = os.path.join(output_folder, "comparison_output.xlsx")
-    auto_fill_formula(last_col=get_column_letter(len(original_df.columns)), last_row=len(original_df)+2, path=output_path)
+    auto_fill_formula(last_col=get_column_letter(len(original_df.columns) * 3 + 1), last_row=len(original_df)+2, path=output_path)
 
 
 def format_compare_sheet(writer, original_df, comparison_df, common_key):
@@ -161,7 +161,7 @@ def format_compare_sheet(writer, original_df, comparison_df, common_key):
     for cell in worksheet['1:1']:  # Accessing the first row
         cell.alignment = Alignment(horizontal='left')
 
-    set_original_values_formula(worksheet, original_df, len(compare_df.columns))
+    set_original_values_formula(worksheet, original_df, len(compare_df.columns), comparison_df)
 
 
 
@@ -173,32 +173,45 @@ def choose_output_folder(entry):
         print(f"Output folder selected: {folder_path}")
 
 
-def set_original_values_formula(worksheet, original_df, num_cols):
+def set_original_values_formula(worksheet, original_df, num_cols, comparison_df):
     max_row = len(original_df) + 2  # Adjust based on your data
     max_col = get_column_letter(num_cols)
-    original_range = range(2, len(original_df.columns), 3)
-    export_range = range(3,  len(original_df.columns), 3)
-    compare_range = range(4,  len(original_df.columns), 3)
-    last_cell = f"{max_col}2"
+    original_range = range(2, len(original_df.columns) * 3, 3)
+    export_range = range(3,  (len(original_df.columns)+1) * 3, 3)
+    compare_range = range(4,  (len(original_df.columns)+1) * 3, 3)
+    compare_length = len(comparison_df) + 1
+    original_length = len(original_df) + 1
+    key_column_name = key_combobox.get()
+    original_key_column = get_column_letter(original_df.columns.get_loc(key_column_name) + 1)
+    export_key_column = get_column_letter(comparison_df.columns.get_loc(key_column_name) + 1)
+    print(f"column in Original tab: {original_key_column}\nColumn in export tab: {export_key_column}")
 
+
+    # TODO: How to make sure that Column B is the Key (or should I get any indication on which column?)
     # TODO: Insert the export formula and compare formula
-    for idx in original_range:  # Starting from the fourth Excel column
+    for idx in original_range: # Original formula insertion
         col_letter = get_column_letter(idx)
         print(f"column latter:{col_letter}")
         cell = worksheet.cell(row=3, column=idx)
-        # TODO: Get the last row of the original file and from Export tab
-        # TODO: Change the formula to use MATCH
-        formula = f"=HLOOKUP(${col_letter}$1,'Original file'!1:2000,2,FALSE)"
+        formula = f"=HLOOKUP(${col_letter}$1,'Original file'!$1:${original_length},MATCH($A3,'Original file'!${original_key_column}:${original_key_column},0),FALSE)"
         cell.value = formula
-        # =HLOOKUP($B$1,'Original file'!1:2000,2,FALSE)
-        # for row_idx in range(3, max_row + 1):  # Starting from the third Excel row
-            # print(f"row: {row_idx}, column: {idx}")
-            # cell = worksheet.cell(row=row_idx, column=idx)
-            # key_cell = f"A{row_idx}"
-            # formula = f"=B3+B4"
-            # cell.value = formula
 
+    for idx in export_range: # Export formula insertion
+        col_letter = get_column_letter(idx - 1)
+        print(f"column latter:{col_letter}")
+        cell = worksheet.cell(row=3, column=idx)
+        formula = f"=HLOOKUP(${col_letter}$1,'Export file'!$1:${compare_length},MATCH($A3,'Export file'!${export_key_column}:${export_key_column},0),FALSE)"
+        cell.value = formula
 
+    for idx in compare_range: # Export formula insertion
+        og_col = get_column_letter(idx - 2)
+        export_col = get_column_letter(idx - 1)
+        #col_letter = get_column_letter(idx - 2)
+        #print(f"column latter:{col_letter}")
+        cell = worksheet.cell(row=3, column=idx)
+        formula = f'=IF(OR(ISNA({og_col}3),ISNA({export_col}3)),"Error",IF({og_col}3={export_col}3,"OK","Error"))'
+        # =IF(OR(ISNA(B3),ISNA(C3)),"Error",IF(B3=C3,"OK","Error"))
+        cell.value = formula
 
 def auto_fill_formula(last_col, last_row, path):
     # Open an existing workbook
