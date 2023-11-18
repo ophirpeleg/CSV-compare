@@ -3,7 +3,7 @@ from tkinter import filedialog, ttk
 import csv
 import pandas as pd
 import os
-from openpyxl.styles import Alignment
+from openpyxl.styles import Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import xlwings as xw
 
@@ -126,7 +126,7 @@ def save_to_excel(original_file, comparison_file, output_path, common_key):
     output_folder = output_folder_entry.get()
     output_path = os.path.join(output_folder, "comparison_output.xlsx")
     auto_fill_formula(last_col=get_column_letter(len(original_df.columns) * 3 + 1), last_row=len(original_df)+2, path=output_path)
-    # TODO: Needs some formatting, research if it's possible to do it with openpyxl, if not use xlwings
+    # TODO: Needs some formatting - use openpyxl
 
 
 def format_compare_sheet(writer, original_df, comparison_df, common_key):
@@ -162,7 +162,7 @@ def format_compare_sheet(writer, original_df, comparison_df, common_key):
     for cell in worksheet['1:1']:  # Accessing the first row
         cell.alignment = Alignment(horizontal='left')
 
-    set_original_values_formula(worksheet, original_df, len(compare_df.columns), comparison_df)
+    set_original_values_formula(worksheet, original_df, comparison_df)
 
 
 
@@ -174,34 +174,60 @@ def choose_output_folder(entry):
         print(f"Output folder selected: {folder_path}")
 
 
-def set_original_values_formula(worksheet, original_df, comparison_df, key_column_name):
+def set_original_values_formula(worksheet, original_df, comparison_df):
+    key_column_name = key_combobox.get()
     # Calculate the maximum number of rows in both dataframes
     compare_length = len(comparison_df) + 1
     original_length = len(original_df) + 1
 
-    # Retrieve the column letters for the key columns in each sheet
     original_key_column = get_column_letter(original_df.columns.get_loc(key_column_name) + 1)
     export_key_column = get_column_letter(comparison_df.columns.get_loc(key_column_name) + 1)
 
+    # Calculate the last row of the DataFrame in the worksheet
+    last_row = len(original_df) + 2
+
+    # Define the border style
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+
     # Set the formulas for the first row of data (row 3 in the worksheet)
-    for idx, col in enumerate(original_df.columns, start=2):
-        col_letter = get_column_letter(idx * 3)  # Original column
+    for idx, col in enumerate(original_df.columns, start=1):
+        # Set the HLOOKUP formula for the 'Original' column (every third column starting from B)
+        original_col_letter = get_column_letter(idx * 3 - 1)  # Adjust the index for the 'Original' column
+        cell = worksheet.cell(row=3, column=idx * 3 - 1)
+        cell.value = f"=HLOOKUP(${original_col_letter}$1,'Original file'!$1:${original_length},MATCH($A3,'Original file'!${original_key_column}:${original_key_column},0),FALSE)"
+
+        # Set the HLOOKUP formula for the 'Export' column
+        export_col_letter = get_column_letter(idx * 3)  # Adjust the index for the 'Export' column
         cell = worksheet.cell(row=3, column=idx * 3)
-        cell.value = f"=HLOOKUP(${col_letter}$1,'Original file'!$1:${original_length},MATCH($A3,'Original file'!${original_key_column}:${original_key_column},0),FALSE)"
+        cell.value = f"=HLOOKUP(${original_col_letter}$1,'Export file'!$1:${compare_length},MATCH($A3,'Export file'!${export_key_column}:${export_key_column},0),FALSE)"
 
-        col_letter = get_column_letter(idx * 3 + 1)  # Export column
+        # Set the comparison formula for the 'Compare' column
+        compare_col_letter = get_column_letter(idx * 3 + 1)  # Adjust the index for the 'Compare' column
         cell = worksheet.cell(row=3, column=idx * 3 + 1)
-        cell.value = f"=HLOOKUP(${col_letter}$1,'Export file'!$1:${compare_length},MATCH($A3,'Export file'!${export_key_column}:${export_key_column},0),FALSE)"
-
-        col_letter = get_column_letter(idx * 3 + 2)  # Compare column
-        cell = worksheet.cell(row=3, column=idx * 3 + 2)
-        cell.value = f'=IF(OR(ISNA({get_column_letter(idx * 3)}3),ISNA({get_column_letter(idx * 3 + 1)}3)),"Error",IF({get_column_letter(idx * 3)}3={get_column_letter(idx * 3 + 1)}3,"OK","Error"))'
+        compare_formula = f'=IF(OR(ISNA({original_col_letter}3),ISNA({export_col_letter}3)),"Error",IF({original_col_letter}3={export_col_letter}3,"OK","Error"))'
+        cell.value = compare_formula
 
     # Set the COUNTIF formula in the first row for each 'Compare' column
-    for idx in range(4, len(original_df.columns) * 3 + 1, 3):
+    for idx in range(4, len(original_df.columns) * 3 + 4, 3):  # Adjust the index for the COUNTIF formula
         col_letter = get_column_letter(idx)
         cell = worksheet.cell(row=1, column=idx)
-        cell.value = f'=COUNTIF(${col_letter}$3:${col_letter}{compare_length},"Error")'
+        cell.value = f'=COUNTIF(${col_letter}$3:${col_letter}{compare_length + 1},"Error")'
+
+    # Apply borders from column B to the end in sections of 3
+    for group_start in range(2, len(original_df.columns) * 3 + 2, 3):  # Start from column B (index 2), in steps of 3
+        group_end = group_start + 2  # End index of the group
+
+        # Apply borders to each cell in the group
+        for row in range(1, last_row + 1):  # Include header and data rows
+            for col in range(group_start, group_end + 1):  # From start to end of the group
+                cell = worksheet.cell(row=row, column=col)
+                cell.border = thin_border
+                #cell.border = outside_border
 
 
 def auto_fill_formula(last_col, last_row, path):
