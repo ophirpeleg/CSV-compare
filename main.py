@@ -4,7 +4,8 @@ import csv
 import pandas as pd
 import os
 from openpyxl.styles import Alignment, Border, Side
-from openpyxl.utils import get_column_letter
+from openpyxl.utils import get_column_letter, column_index_from_string
+
 import xlwings as xw
 
 
@@ -126,6 +127,7 @@ def save_to_excel(original_file, comparison_file, output_path, common_key):
     output_folder = output_folder_entry.get()
     output_path = os.path.join(output_folder, "comparison_output.xlsx")
     auto_fill_formula(last_col=get_column_letter(len(original_df.columns) * 3 + 1), last_row=len(original_df)+2, path=output_path)
+
     # TODO: Needs some formatting - use openpyxl
 
 
@@ -244,6 +246,28 @@ def auto_fill_formula(last_col, last_row, path):
 
     # Use the auto-fill
     cell_with_formula.api.AutoFill(fill_range.api, xw.constants.AutoFillType.xlFillDefault)
+
+    # Convert column letter to number
+    last_col_index = column_index_from_string(last_col)
+
+    # Apply outside borders to each group of three columns from column B onwards
+    for group_start in range(2, last_col_index + 1, 3):  # Start from column B (index 2), in steps of 3
+        group_end = group_start + 2  # End index of the group (3 columns per group)
+
+        # Define the range for the current group
+        start_col_letter = xw.utils.col_name(group_start)
+        end_col_letter = xw.utils.col_name(group_end)
+
+        group_range = sheet.range(f"{start_col_letter}1:{end_col_letter}{last_row}")
+
+        # Apply outside borders to the range using VBA constants
+        borders = group_range.api.Borders
+        for border_id in [7, 8, 9, 10]:  # These are the VBA constants for xlEdgeLeft, xlEdgeTop, xlEdgeBottom, xlEdgeRight
+            border = borders(border_id)
+            border.LineStyle = -4119  # xlContinuous
+            border.Weight = 2  # xlThin
+
+
 
     # Save and close the workbook
     wb.save()
