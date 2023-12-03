@@ -274,7 +274,6 @@ def auto_fill_formula(last_col, last_row, path):
         formula = f'=AND(ISNUMBER({col_letter}1),0<{col_letter}1)'
 
         # Add conditional formatting based on the formula
-        # oron commit
         format_condition = cell.api.FormatConditions.Add(Type=xw.constants.FormatConditionType.xlExpression,
                                                          Formula1=formula)
         format_condition.Font.Bold = True
