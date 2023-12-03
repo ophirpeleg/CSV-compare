@@ -3,9 +3,8 @@ from tkinter import filedialog, ttk
 import csv
 import pandas as pd
 import os
-from openpyxl.styles import Alignment, Border, Side
+from openpyxl.styles import Alignment, Border, Side, Color
 from openpyxl.utils import get_column_letter, column_index_from_string
-
 import xlwings as xw
 
 
@@ -187,13 +186,14 @@ def set_original_values_formula(worksheet, original_df, comparison_df):
 
     # Calculate the last row of the DataFrame in the worksheet
     last_row = len(original_df) + 2
+    grey_color = 'D3D3D3'
 
     # Define the border style
     thin_border = Border(
-        left=Side(style='thin'),
-        right=Side(style='thin'),
-        top=Side(style='thin'),
-        bottom=Side(style='thin')
+        left=Side(style='thin', color=grey_color),
+        right=Side(style='thin', color=grey_color),
+        top=Side(style='thin', color=grey_color),
+        bottom=Side(style='thin', color=grey_color)
     )
 
     # Set the formulas for the first row of data (row 3 in the worksheet)
@@ -231,7 +231,6 @@ def set_original_values_formula(worksheet, original_df, comparison_df):
                 cell.border = thin_border
                 #cell.border = outside_border
 
-
 def auto_fill_formula(last_col, last_row, path):
     # Open an existing workbook
     wb = xw.Book(path)  # Replace with your file path
@@ -241,7 +240,6 @@ def auto_fill_formula(last_col, last_row, path):
     cell_with_formula = sheet.range(f"B3:{last_col}3")
 
     # Define the range to auto-fill
-    # For example, auto-filling from A2 to A10
     fill_range = sheet.range(f"B3:{last_col}{last_row}")
 
     # Use the auto-fill
@@ -251,21 +249,35 @@ def auto_fill_formula(last_col, last_row, path):
     last_col_index = column_index_from_string(last_col)
 
     # Apply outside borders to each group of three columns from column B onwards
-    for group_start in range(2, last_col_index + 1, 3):  # Start from column B (index 2), in steps of 3
-        group_end = group_start + 2  # End index of the group (3 columns per group)
+    for group_start in range(2, last_col_index + 1, 3):
+        group_end = group_start + 2
 
-        # Define the range for the current group
         start_col_letter = xw.utils.col_name(group_start)
         end_col_letter = xw.utils.col_name(group_end)
 
         group_range = sheet.range(f"{start_col_letter}1:{end_col_letter}{last_row}")
 
-        # Apply outside borders to the range using VBA constants
         borders = group_range.api.Borders
-        for border_id in [7, 8, 9, 10]:  # These are the VBA constants for xlEdgeLeft, xlEdgeTop, xlEdgeBottom, xlEdgeRight
+        for border_id in [7, 8, 9, 10]:
             border = borders(border_id)
-            border.LineStyle = -4119  # xlContinuous
-            border.Weight = 2  # xlThin
+            border.LineStyle = -4119
+            border.Weight = 3
+            border.Color = xw.utils.rgb_to_int((0, 0, 0))
+
+    # Apply conditional formatting to row 1 from column D to the last column
+    start_col_letter = xw.utils.col_name(4)  # Column D
+    end_col_letter = xw.utils.col_name(last_col_index)
+
+    for col in range(4, last_col_index + 1):
+        col_letter = xw.utils.col_name(col)
+        cell = sheet.range(f"{col_letter}1")
+        formula = f'=AND(ISNUMBER({col_letter}1),0<{col_letter}1)'
+
+        # Add conditional formatting based on the formula
+        format_condition = cell.api.FormatConditions.Add(Type=xw.constants.FormatConditionType.xlExpression,
+                                                         Formula1=formula)
+        format_condition.Font.Bold = True
+        format_condition.Interior.Color = xw.utils.rgb_to_int((255, 255, 0))  # Example: Yellow background
 
 
 
